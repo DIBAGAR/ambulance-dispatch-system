@@ -1,13 +1,13 @@
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { MapContainer, TileLayer, Marker, Popup } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import { Client } from '@stomp/stompjs';
-import { LogOut, AlertTriangle, Activity, Truck, Wrench, X } from 'lucide-react';
+import { LogOut, AlertTriangle, Activity, Truck, Wrench, X, Navigation, MapPin } from 'lucide-react';
 import api from '../services/api';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
 
-// Fix default marker icon issue with Webpack/Vite
+// Fix default marker icon issue
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -27,12 +27,28 @@ const redIcon = new L.Icon({
   iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
 });
 
+const yellowIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-gold.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize: [25, 41], iconAnchor: [12, 41], popupAnchor: [1, -34], shadowSize: [41, 41],
+});
+
 interface AmbulanceLocation {
   vehicleNumber: string;
   latitude: number;
   longitude: number;
   status?: string;
 }
+
+// Map Click Listener Component
+const MapClickHandler = ({ onMapClick }: { onMapClick: (lat: number, lng: number) => void }) => {
+  useMapEvents({
+    click: (e) => {
+      onMapClick(e.latlng.lat, e.latlng.lng);
+    },
+  });
+  return null;
+};
 
 const Dashboard = () => {
   const navigate = useNavigate();
@@ -41,14 +57,28 @@ const Dashboard = () => {
   const [description, setDescription] = useState('');
   const [lat, setLat] = useState('');
   const [lng, setLng] = useState('');
+  const [selectedPoint, setSelectedPoint] = useState<{ lat: number; lng: number } | null>(null);
   const [submitMsg, setSubmitMsg] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [gpsLoading, setGpsLoading] = useState(false);
   const clientRef = useRef<Client | null>(null);
 
   const roles = JSON.parse(localStorage.getItem('roles') || '[]');
   const roleName = roles[0]?.replace('ROLE_', '') || 'USER';
 
+  // Fetch initial ambulances list from API
+  const fetchAmbulances = async () => {
+    try {
+      const res = await api.get('/dispatch/ambulances');
+      setAmbulances(res.data);
+    } catch (err) {
+      console.error('Failed to fetch ambulances:', err);
+    }
+  };
+
   useEffect(() => {
+    fetchAmbulances();
+
     const client = new Client({
       brokerURL: 'ws://localhost:8080/ws-location/websocket',
       reconnectDelay: 5000,
@@ -78,6 +108,38 @@ const Dashboard = () => {
     navigate('/login');
   };
 
+  // Map click handler to select incident location
+  const handleMapClick = (clickLat: number, clickLng: number) => {
+    setLat(clickLat.toFixed(6));
+    setLng(clickLng.toFixed(6));
+    setSelectedPoint({ lat: clickLat, lng: clickLng });
+    setShowModal(true);
+  };
+
+  // Auto-detect current browser GPS location
+  const handleDetectGps = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setGpsLoading(true);
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const currentLat = pos.coords.latitude;
+        const currentLng = pos.coords.longitude;
+        setLat(currentLat.toFixed(6));
+        setLng(currentLng.toFixed(6));
+        setSelectedPoint({ lat: currentLat, lng: currentLng });
+        setGpsLoading(false);
+      },
+      (err) => {
+        console.error(err);
+        alert('Could not detect location. Please allow GPS location permissions.');
+        setGpsLoading(false);
+      }
+    );
+  };
+
   const handleReport = async (e: React.FormEvent) => {
     e.preventDefault();
     setSubmitting(true);
@@ -89,8 +151,9 @@ const Dashboard = () => {
         longitude: parseFloat(lng),
       });
       setSubmitMsg(typeof res.data === 'string' ? res.data : 'Incident reported!');
-      setDescription(''); setLat(''); setLng('');
-      setTimeout(() => setShowModal(false), 2000);
+      setDescription(''); setLat(''); setLng(''); setSelectedPoint(null);
+      fetchAmbulances();
+      setTimeout(() => setShowModal(false), 2500);
     } catch (err: any) {
       setSubmitMsg(err.response?.data || 'Failed to report incident.');
     } finally {
@@ -113,6 +176,21 @@ const Dashboard = () => {
           attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
           url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
         />
+        <MapClickHandler onMapClick={handleMapClick} />
+
+        {/* Selected Incident Point Marker */}
+        {selectedPoint && (
+          <Marker position={[selectedPoint.lat, selectedPoint.lng]} icon={yellowIcon}>
+            <Popup>
+              <div className="text-sm font-semibold text-yellow-500">
+                📍 Selected Incident Location<br />
+                Lat: {selectedPoint.lat.toFixed(4)}, Lng: {selectedPoint.lng.toFixed(4)}
+              </div>
+            </Popup>
+          </Marker>
+        )}
+
+        {/* Ambulance Markers */}
         {ambulances.map((amb) => (
           <Marker key={amb.vehicleNumber}
             position={[amb.latitude, amb.longitude]}
@@ -120,7 +198,7 @@ const Dashboard = () => {
             <Popup>
               <div className="text-sm">
                 <strong>{amb.vehicleNumber}</strong><br />
-                Status: {amb.status || 'AVAILABLE'}<br />
+                Status: <span className={amb.status === 'DISPATCHED' ? 'text-red-500 font-bold' : 'text-emerald-500 font-bold'}>{amb.status || 'AVAILABLE'}</span><br />
                 Lat: {amb.latitude.toFixed(4)}, Lng: {amb.longitude.toFixed(4)}
               </div>
             </Popup>
@@ -136,7 +214,7 @@ const Dashboard = () => {
           <span className="bg-primary/20 text-primary text-xs font-semibold px-3 py-1 rounded-full">{roleName}</span>
         </div>
         <div className="flex gap-2">
-          {(roles.includes('ROLE_SUPER_ADMIN')) && (
+          {roles.includes('ROLE_SUPER_ADMIN') && (
             <button onClick={() => navigate('/superadmin')}
               className="glass-panel px-4 py-3 text-sm text-slate-300 hover:text-white transition-colors cursor-pointer">
               Super Admin
@@ -183,6 +261,10 @@ const Dashboard = () => {
           className="w-full bg-red-500 hover:bg-red-600 text-white font-semibold rounded-xl py-3 flex items-center justify-center gap-2 transition-all shadow-lg shadow-red-500/20 cursor-pointer">
           <AlertTriangle size={20} /> Report Incident
         </button>
+
+        <p className="text-xs text-slate-400 text-center px-2">
+          💡 <strong>Tip:</strong> Click anywhere directly on the map to pick an accident location!
+        </p>
       </div>
 
       {/* Incident Modal */}
@@ -191,8 +273,14 @@ const Dashboard = () => {
           <div className="glass-panel w-full max-w-md p-6 relative">
             <button onClick={() => setShowModal(false)} className="absolute top-4 right-4 text-slate-400 hover:text-white cursor-pointer"><X size={20} /></button>
             <h2 className="text-xl font-bold text-white mb-1">Report Emergency</h2>
-            <p className="text-slate-400 text-sm mb-6">Enter the accident details below to dispatch the nearest ambulance.</p>
+            <p className="text-slate-400 text-sm mb-4">Click anywhere on the map or use the auto-detect button to get GPS coordinates.</p>
             
+            {/* Auto-detect GPS button */}
+            <button type="button" onClick={handleDetectGps} disabled={gpsLoading}
+              className="w-full mb-4 bg-slate-800 hover:bg-slate-700 text-blue-400 border border-blue-500/30 font-medium rounded-lg py-2 flex items-center justify-center gap-2 text-sm transition-all cursor-pointer">
+              <Navigation size={16} /> {gpsLoading ? 'Detecting GPS...' : '📍 Auto-Detect My Current GPS Location'}
+            </button>
+
             {submitMsg && (
               <div className={`text-sm px-4 py-2 rounded-lg mb-4 ${submitMsg.includes('dispatched') || submitMsg.includes('reported') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/30' : 'bg-red-500/10 text-red-400 border border-red-500/30'}`}>
                 {submitMsg}
@@ -203,18 +291,18 @@ const Dashboard = () => {
               <div>
                 <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
                 <textarea required rows={2} value={description} onChange={(e) => setDescription(e.target.value)}
-                  className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary resize-none" placeholder="Road accident on NH-48..." />
+                  className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary resize-none" placeholder="Road accident near highway..." />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">Latitude</label>
                   <input type="number" step="any" required value={lat} onChange={(e) => setLat(e.target.value)}
-                    className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary" placeholder="20.5937" />
+                    className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary" placeholder="12.9716" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-slate-300 mb-1">Longitude</label>
                   <input type="number" step="any" required value={lng} onChange={(e) => setLng(e.target.value)}
-                    className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary" placeholder="78.9629" />
+                    className="w-full bg-darker border border-slate-700 text-white rounded-lg p-3 outline-none focus:ring-2 focus:ring-primary" placeholder="77.5946" />
                 </div>
               </div>
               <button type="submit" disabled={submitting}
