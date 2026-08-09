@@ -5,7 +5,7 @@ spring:
   datasource:
     url: jdbc:postgresql://localhost:5432/ambulancedb
     username: postgres
-    password: admin
+    password: dibagar66
     driver-class-name: org.postgresql.Driver
 
   jpa:

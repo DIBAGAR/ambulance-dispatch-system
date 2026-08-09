@@ -1,7 +1,6 @@
 package com.ambulance.dispatch.entity;
 
 import jakarta.persistence.*;
-import org.locationtech.jts.geom.Point;
 
 @Entity
 @Table(name = "ambulances")
@@ -14,8 +13,8 @@ public class Ambulance {
     @Column(nullable = false, unique = true)
     private String vehicleNumber;
 
-    @Column(columnDefinition = "geometry(Point,4326)")
-    private Point currentLocation;
+    private Double latitude = 20.5937;
+    private Double longitude = 78.9629;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -28,9 +27,10 @@ public class Ambulance {
     public Ambulance() {
     }
 
-    public Ambulance(String vehicleNumber, Point currentLocation, AmbulanceStatus status, User driver) {
+    public Ambulance(String vehicleNumber, Double latitude, Double longitude, AmbulanceStatus status, User driver) {
         this.vehicleNumber = vehicleNumber;
-        this.currentLocation = currentLocation;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.status = status;
         this.driver = driver;
     }
@@ -51,12 +51,20 @@ public class Ambulance {
         this.vehicleNumber = vehicleNumber;
     }
 
-    public Point getCurrentLocation() {
-        return currentLocation;
+    public Double getLatitude() {
+        return latitude;
     }
 
-    public void setCurrentLocation(Point currentLocation) {
-        this.currentLocation = currentLocation;
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     public AmbulanceStatus getStatus() {

@@ -7,10 +7,6 @@ import com.ambulance.dispatch.entity.Incident;
 import com.ambulance.dispatch.entity.IncidentStatus;
 import com.ambulance.dispatch.repository.AmbulanceRepository;
 import com.ambulance.dispatch.repository.IncidentRepository;
-import org.locationtech.jts.geom.Coordinate;
-import org.locationtech.jts.geom.GeometryFactory;
-import org.locationtech.jts.geom.Point;
-import org.locationtech.jts.geom.PrecisionModel;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -25,34 +21,34 @@ public class DispatchService {
     @Autowired
     private AmbulanceRepository ambulanceRepository;
 
-    private final GeometryFactory geometryFactory = new GeometryFactory(new PrecisionModel(), 4326);
-
     public Incident reportAndDispatch(IncidentDto incidentDto) {
-        Point incidentLocation = geometryFactory.createPoint(new Coordinate(incidentDto.getLongitude(), incidentDto.getLatitude()));
+        Double lat = incidentDto.getLatitude();
+        Double lng = incidentDto.getLongitude();
 
-        // Query database for all available ambulances, sorted by ST_Distance
-        List<Ambulance> availableAmbulances = ambulanceRepository.findClosestAmbulances(incidentLocation, AmbulanceStatus.AVAILABLE);
+        // Query database for closest available ambulances
+        List<Ambulance> availableAmbulances = ambulanceRepository.findClosestAmbulances(lat, lng, AmbulanceStatus.AVAILABLE);
 
         Incident incident = new Incident();
         incident.setDescription(incidentDto.getDescription());
-        incident.setLocation(incidentLocation);
+        incident.setLatitude(lat);
+        incident.setLongitude(lng);
 
         if (!availableAmbulances.isEmpty()) {
-            // Take the closest one
             Ambulance closestAmbulance = availableAmbulances.get(0);
             
-            // Assign it to the incident
             incident.setAssignedAmbulance(closestAmbulance);
             incident.setStatus(IncidentStatus.RESPONDING);
             
-            // Update the ambulance status
             closestAmbulance.setStatus(AmbulanceStatus.DISPATCHED);
             ambulanceRepository.save(closestAmbulance);
         } else {
-            // No ambulances available right now, leave it in queue
             incident.setStatus(IncidentStatus.REPORTED);
         }
 
         return incidentRepository.save(incident);
+    }
+
+    public List<Ambulance> getAllAmbulances() {
+        return ambulanceRepository.findAll();
     }
 }

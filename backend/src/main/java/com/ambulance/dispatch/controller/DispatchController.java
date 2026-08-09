@@ -32,4 +32,10 @@ public class DispatchController {
             return ResponseEntity.badRequest().body("Failed to report incident: " + e.getMessage());
         }
     }
+
+    @GetMapping("/ambulances")
+    @PreAuthorize("hasAnyRole('DISPATCHER', 'ADMIN', 'SUPER_ADMIN')")
+    public ResponseEntity<?> getAllAmbulances() {
+        return ResponseEntity.ok(dispatchService.getAllAmbulances());
+    }
 }

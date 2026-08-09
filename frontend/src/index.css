@@ -5,8 +5,16 @@
 @tailwind utilities;
 
 @layer base {
+  html, body {
+    height: 100%;
+    margin: 0;
+    padding: 0;
+  }
   body {
     @apply bg-darker text-slate-200 font-sans antialiased;
+  }
+  #root {
+    height: 100%;
   }
 }
 

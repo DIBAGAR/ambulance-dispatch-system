@@ -1,8 +1,6 @@
 package com.ambulance.dispatch.entity;
 
 import jakarta.persistence.*;
-import org.locationtech.jts.geom.Point;
-import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "incidents")
@@ -15,31 +13,24 @@ public class Incident {
     @Column(nullable = false)
     private String description;
 
-    @Column(columnDefinition = "geometry(Point,4326)", nullable = false)
-    private Point location;
+    private Double latitude;
+    private Double longitude;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private IncidentStatus status;
 
     @ManyToOne
-    @JoinColumn(name = "assigned_ambulance_id")
+    @JoinColumn(name = "assigned_ambulance_id", referencedColumnName = "id")
     private Ambulance assignedAmbulance;
-
-    @Column(name = "created_at", nullable = false, updatable = false)
-    private LocalDateTime createdAt;
-
-    @PrePersist
-    protected void onCreate() {
-        createdAt = LocalDateTime.now();
-    }
 
     public Incident() {
     }
 
-    public Incident(String description, Point location, IncidentStatus status, Ambulance assignedAmbulance) {
+    public Incident(String description, Double latitude, Double longitude, IncidentStatus status, Ambulance assignedAmbulance) {
         this.description = description;
-        this.location = location;
+        this.latitude = latitude;
+        this.longitude = longitude;
         this.status = status;
         this.assignedAmbulance = assignedAmbulance;
     }
@@ -60,12 +51,20 @@ public class Incident {
         this.description = description;
     }
 
-    public Point getLocation() {
-        return location;
+    public Double getLatitude() {
+        return latitude;
     }
 
-    public void setLocation(Point location) {
-        this.location = location;
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
     }
 
     public IncidentStatus getStatus() {
@@ -82,13 +81,5 @@ public class Incident {
 
     public void setAssignedAmbulance(Ambulance assignedAmbulance) {
         this.assignedAmbulance = assignedAmbulance;
-    }
-
-    public LocalDateTime getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(LocalDateTime createdAt) {
-        this.createdAt = createdAt;
     }
 }

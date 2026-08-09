@@ -61,8 +61,10 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(request -> {
                     var corsConfiguration = new CorsConfiguration();
                     corsConfiguration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:3000"));
-                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS"));
+                    corsConfiguration.setAllowedMethods(List.of("GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"));
                     corsConfiguration.setAllowedHeaders(List.of("*"));
+                    corsConfiguration.setAllowCredentials(true);
+                    corsConfiguration.setExposedHeaders(List.of("Authorization"));
                     return corsConfiguration;
                 }))
                 .exceptionHandling(exception -> exception.authenticationEntryPoint(unauthorizedHandler))
@@ -70,10 +72,10 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> 
                     auth.requestMatchers("/api/auth/**").permitAll()
                         .requestMatchers("/ws-location/**").permitAll()
-                        .requestMatchers("/api/superadmin/**").hasRole("SUPER_ADMIN")
-                        .requestMatchers("/api/admin/**").hasAnyRole("ADMIN", "SUPER_ADMIN")
-                        .requestMatchers("/api/dispatch/**").hasAnyRole("DISPATCHER", "ADMIN", "SUPER_ADMIN")
-                        .requestMatchers("/api/driver/**").hasRole("DRIVER")
+                        .requestMatchers("/api/superadmin/**").hasAuthority("ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/admin/**").hasAnyAuthority("ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/dispatch/**").hasAnyAuthority("ROLE_DISPATCHER", "ROLE_ADMIN", "ROLE_SUPER_ADMIN")
+                        .requestMatchers("/api/driver/**").hasAuthority("ROLE_DRIVER")
                         .anyRequest().authenticated()
                 );
 
