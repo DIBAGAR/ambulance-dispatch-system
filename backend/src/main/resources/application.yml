@@ -3,9 +3,9 @@ spring:
     name: dispatch
 
   datasource:
-    url: jdbc:postgresql://localhost:5432/ambulance_db
+    url: jdbc:postgresql://localhost:5432/ambulancedb
     username: postgres
-    password: password
+    password: admin
     driver-class-name: org.postgresql.Driver
 
   jpa:
