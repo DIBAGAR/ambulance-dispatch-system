@@ -19,7 +19,7 @@ public class AmbulanceService {
         // Validation check for unique vehicle number is handled by unique constraint in DB, 
         // but we could explicitly check here.
 
-        Ambulance ambulance = new Ambulance(vehicleNumber, null, AmbulanceStatus.AVAILABLE, driver);
+        Ambulance ambulance = new Ambulance(vehicleNumber, 20.5937, 78.9629, AmbulanceStatus.AVAILABLE, driver);
         return ambulanceRepository.save(ambulance);
     }
 
