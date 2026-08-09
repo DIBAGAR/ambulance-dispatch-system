@@ -1,6 +1,7 @@
 package com.ambulance.dispatch.entity;
 
 import jakarta.persistence.*;
+import java.time.LocalDateTime;
 
 @Entity
 @Table(name = "incidents")
@@ -20,11 +21,21 @@ public class Incident {
     @Column(nullable = false)
     private IncidentStatus status;
 
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private LocalDateTime createdAt;
+
     @ManyToOne
     @JoinColumn(name = "assigned_ambulance_id", referencedColumnName = "id")
     private Ambulance assignedAmbulance;
 
     public Incident() {
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
     }
 
     public Incident(String description, Double latitude, Double longitude, IncidentStatus status, Ambulance assignedAmbulance) {
@@ -33,6 +44,7 @@ public class Incident {
         this.longitude = longitude;
         this.status = status;
         this.assignedAmbulance = assignedAmbulance;
+        this.createdAt = LocalDateTime.now();
     }
 
     public Long getId() {
@@ -73,6 +85,14 @@ public class Incident {
 
     public void setStatus(IncidentStatus status) {
         this.status = status;
+    }
+
+    public LocalDateTime getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(LocalDateTime createdAt) {
+        this.createdAt = createdAt;
     }
 
     public Ambulance getAssignedAmbulance() {
